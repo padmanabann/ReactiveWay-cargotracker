@@ -2,11 +2,14 @@ package net.java.cargotracker.infrastructure.routing;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.*;
+import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
 import javax.ejb.Stateless;
+import javax.enterprise.concurrent.ContextService;
 import javax.inject.Inject;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
@@ -14,6 +17,8 @@ import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.GenericType;
 import javax.ws.rs.core.MediaType;
 import net.java.cargotracker.application.internal.ApplicationInfo;
+import javax.ws.rs.client.*;
+import javax.ws.rs.core.*;
 import net.java.cargotracker.application.util.JsonMoxyConfigurationContextResolver;
 import net.java.cargotracker.domain.model.cargo.Itinerary;
 import net.java.cargotracker.domain.model.cargo.Leg;
@@ -50,6 +55,8 @@ public class ExternalRoutingService implements RoutingService {
             ExternalRoutingService.class.getName());
     @Inject
     private ApplicationInfo appInfo;
+    @Resource
+    ContextService contextService;
 
     @PostConstruct
     public void init() {
@@ -71,28 +78,54 @@ public class ExternalRoutingService implements RoutingService {
         String destination = routeSpecification.getDestination().getUnLocode()
                 .getIdString();
 
-        List<TransitPath> transitPaths = graphTraversalResource
+        CompletableFuture<List<Itinerary>> futureResult = new CompletableFuture<>();
+        graphTraversalResource
                 .queryParam("origin", origin)
                 .queryParam("destination", destination)
                 .request(MediaType.APPLICATION_JSON_TYPE)
-                .get(new GenericType<List<TransitPath>>() {
+                .async()
+                .get(new InvocationCallback<List<TransitPath>>() {
+                    
+                    Consumer<List<TransitPath>> onCompleted = contextService.createContextualProxy(new Consumer<List<TransitPath>>() {
+                        @Override
+                        public void accept(List<TransitPath> transitPaths) {
+                            // The returned result is then translated back into our domain model.
+                            List<Itinerary> itineraries = new ArrayList<>();
+
+                            for (TransitPath transitPath : transitPaths) {
+                                Itinerary itinerary = toItinerary(transitPath);
+                                // Use the specification to safe-guard against invalid itineraries
+                                if (routeSpecification.isSatisfiedBy(itinerary)) {
+                                    itineraries.add(itinerary);
+                                } else {
+                                    log.log(Level.FINE,
+                                            "Received itinerary that did not satisfy the route specification");
+                                }
+                            }
+
+                            futureResult.complete(itineraries);
+                        }
+
+                    }, Consumer.class);
+
+                    @Override
+                    public void completed(List<TransitPath> transitPaths) {
+                        onCompleted.accept(transitPaths);
+                    }
+
+                    @Override
+                    public void failed(Throwable throwable) {
+                        futureResult.completeExceptionally(throwable);
+                    }
+
                 });
 
-        // The returned result is then translated back into our domain model.
-        List<Itinerary> itineraries = new ArrayList<>();
-
-        for (TransitPath transitPath : transitPaths) {
-            Itinerary itinerary = toItinerary(transitPath);
-            // Use the specification to safe-guard against invalid itineraries
-            if (routeSpecification.isSatisfiedBy(itinerary)) {
-                itineraries.add(itinerary);
-            } else {
-                log.log(Level.FINE,
-                        "Received itinerary that did not satisfy the route specification");
-            }
+        try {
+            return futureResult.get(300, TimeUnit.SECONDS);
+        } catch (InterruptedException | ExecutionException | TimeoutException ex) {
+            throw new RuntimeException(ex);
         }
 
-        return itineraries;
     }
 
     private Itinerary toItinerary(TransitPath transitPath) {
