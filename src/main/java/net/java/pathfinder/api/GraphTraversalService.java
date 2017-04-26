@@ -28,7 +28,7 @@ public class GraphTraversalService {
     public List<TransitPath> findShortestPath(
             @NotNull @Size(min = 5, max = 5) @QueryParam("origin") String originUnLocode,
             @NotNull @Size(min = 5, max = 5) @QueryParam("destination") String destinationUnLocode,
-            @QueryParam("deadline") String deadline) {
+            @QueryParam("deadline") String deadline) throws InterruptedException {
         Date date = nextDate(new Date());
 
         List<String> allVertices = dao.listLocations();
@@ -70,6 +70,7 @@ public class GraphTraversalService {
                     dao.getVoyageNumber(lastLegFrom, destinationUnLocode),
                     lastLegFrom, destinationUnLocode, fromDate, toDate));
 
+            Thread.sleep(3000);
             candidates.add(new TransitPath(transitEdges));
         }
 
