@@ -13,6 +13,8 @@ import javax.inject.Inject;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 import javax.ws.rs.*;
+import javax.ws.rs.container.AsyncResponse;
+import javax.ws.rs.container.Suspended;
 import net.java.cargotracker.application.util.reactive.CompletionStream;
 import net.java.pathfinder.api.reactive.GraphTraversalRequest;
 import net.java.pathfinder.api.reactive.GraphTraversalResponse;
@@ -38,7 +40,8 @@ public class GraphTraversalService {
     @Path("/shortest-path")
     @Produces({"application/json", "application/xml; qs=.75"})
     // TODO Add internationalized messages for constraints.
-    public List<TransitPath> findShortestPath(
+    public void findShortestPath(
+            @Suspended AsyncResponse response,
             @NotNull @Size(min = 5, max = 5) @QueryParam("origin") String originUnLocode,
             @NotNull @Size(min = 5, max = 5) @QueryParam("destination") String destinationUnLocode,
             @QueryParam("deadline") String deadline) throws InterruptedException {
@@ -48,14 +51,8 @@ public class GraphTraversalService {
 
         findShortestPath(originUnLocode, destinationUnLocode,
                 candidates::add,
-                () -> {},
-                e -> exceptionHolder[0] = e);
-
-        if (exceptionHolder.length < 1) {
-            return candidates;
-        } else {
-            throw new RuntimeException(exceptionHolder[0]);
-        }
+                () -> response.resume(candidates),
+                e -> response.resume(e));
     }
     
     public void findShortestPath(@Observes @Inbound GraphTraversalRequest request) {
