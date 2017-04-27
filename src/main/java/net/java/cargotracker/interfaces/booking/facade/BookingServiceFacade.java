@@ -2,7 +2,7 @@ package net.java.cargotracker.interfaces.booking.facade;
 
 import java.util.Date;
 import java.util.List;
-import java.util.concurrent.CompletionStage;
+import net.java.cargotracker.application.util.reactive.CompletionStream;
 import net.java.cargotracker.interfaces.booking.facade.dto.CargoRoute;
 import net.java.cargotracker.interfaces.booking.facade.dto.Location;
 import net.java.cargotracker.interfaces.booking.facade.dto.RouteCandidate;
@@ -21,7 +21,7 @@ public interface BookingServiceFacade {
 
     void changeDestination(String trackingId, String destinationUnLocode);
 
-    CompletionStage<List<RouteCandidate>> requestPossibleRoutesForCargo(String trackingId);
+    CompletionStream<RouteCandidate> requestPossibleRoutesForCargo(String trackingId);
 
     List<Location> listShippingLocations();
 

@@ -54,6 +54,14 @@
             <artifactId>omnifaces</artifactId>
             <version>2.4</version>
         </dependency>
+        
+        <!-- Payara specific dependencies -->
+
+        <dependency>
+            <groupId>fish.payara.api</groupId>
+            <artifactId>payara-api</artifactId>
+            <version>4.1.1.171.1</version>
+        </dependency>
 
         <!-- GlassFish specific dependencies, could go away in Java EE 8 -->
         <dependency>

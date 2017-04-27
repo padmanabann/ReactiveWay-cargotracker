@@ -4,10 +4,12 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.PostConstruct;
 import javax.inject.Inject;
 import javax.inject.Named;
+import net.java.cargotracker.infrastructure.routing.ExternalRoutingService;
 import net.java.cargotracker.interfaces.booking.facade.BookingServiceFacade;
 import net.java.cargotracker.interfaces.booking.facade.dto.CargoRoute;
 import net.java.cargotracker.interfaces.booking.facade.dto.RouteCandidate;
@@ -38,19 +40,21 @@ public class ItinerarySelection implements Serializable {
     List<RouteCandidate> routeCandidates;
     @Inject
     private BookingServiceFacade bookingServiceFacade;
-    
+    private static final Logger log = Logger.getLogger(
+            ItinerarySelection.class.getName());
+
     @Inject
-    @Push(channel="routeCandidates")
+    @Push(channel = "routeCandidates")
     private PushContext push;
-    
+
     private CompletableFuture<Void> websocketTriggered;
-    
+
     @PostConstruct
     public void init() {
         routeCandidates = new ArrayList<>();
         websocketTriggered = new CompletableFuture<>();
     }
-    
+
     public List<RouteCandidate> getRouteCandidates() {
         return routeCandidates;
     }
@@ -70,7 +74,7 @@ public class ItinerarySelection implements Serializable {
     public List<RouteCandidate> getRouteCanditates() {
         return routeCandidates;
     }
-    
+
     public void pageLoaded() {
         websocketTriggered.complete(null);
     }
@@ -82,21 +86,34 @@ public class ItinerarySelection implements Serializable {
         loadingStarted = true;
         cargo = bookingServiceFacade.loadCargoForRouting(trackingId);
         bookingServiceFacade
-            .requestPossibleRoutesForCargo(trackingId)
-                .thenAccept(candidates -> {
-                        Logger.getGlobal().info(() -> "Accepted candidates: " + candidates);
-                        routeCandidates.addAll(candidates);
+                .requestPossibleRoutesForCargo(trackingId)
+                .acceptEach(stage -> {
+                    stage.thenAccept(routeCandidate -> {
+                        log.info(() -> "Accepted " + routeCandidate);
+                        routeCandidates.add(routeCandidate);
+                        websocketTriggered.thenRun(() -> {
+                            push.send("refresh");
+                        });
                     }).exceptionally(e -> {
+                        log.log(Level.WARNING, e, () -> "Error: " + e.getMessage());
                         websocketTriggered.thenRun(() -> {
                             push.send("error: " + e.getMessage());
                         });
                         return null;
-                    })
+                    });
+                })
+                .whenFinished()
                 .whenComplete((v, e) -> {
                     loadingFinished = true;
+                    websocketTriggered.thenRun(() -> {
+                        push.send("finished");
+                    });
+                    if (e != null) {
+                        log.log(Level.WARNING, e, () -> "Error: " + e.getMessage());
                         websocketTriggered.thenRun(() -> {
-                            push.send("finished");
+                            push.send("error: " + e.getMessage());
                         });
+                    }
                 });
     }
 
@@ -107,7 +124,7 @@ public class ItinerarySelection implements Serializable {
     public boolean isLoadingFinished() {
         return loadingFinished;
     }
-    
+
     public String assignItinerary(int routeIndex) {
         RouteCandidate route = routeCandidates.get(routeIndex);
         bookingServiceFacade.assignCargoToRoute(trackingId, route);

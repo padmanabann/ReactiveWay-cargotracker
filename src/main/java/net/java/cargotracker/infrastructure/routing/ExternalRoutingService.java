@@ -16,7 +16,7 @@ import javax.ws.rs.core.GenericType;
 import javax.ws.rs.core.MediaType;
 import net.java.cargotracker.application.internal.ApplicationInfo;
 import net.java.cargotracker.application.util.JsonMoxyConfigurationContextResolver;
-import net.java.cargotracker.application.util.reactive.JaxrsResponseCallback;
+import net.java.cargotracker.application.util.reactive.*;
 import net.java.cargotracker.domain.model.cargo.Itinerary;
 import net.java.cargotracker.domain.model.cargo.Leg;
 import net.java.cargotracker.domain.model.cargo.RouteSpecification;
@@ -38,11 +38,8 @@ import org.glassfish.jersey.moxy.json.MoxyJsonFeature;
 @Stateless
 public class ExternalRoutingService implements RoutingService {
 
-    @Resource(lookup = "java:app/configuration/GraphTraversalUrl")
-    private String graphTraversalUrl;
-    // TODO Can I use injection?
-    private final Client jaxrsClient = ClientBuilder.newClient();
-    private WebTarget graphTraversalResource;
+    @Inject
+    private GraphTraversalResource graphTraversalResource;
     @Inject
     private LocationRepository locationRepository;
     @Inject
@@ -50,52 +47,35 @@ public class ExternalRoutingService implements RoutingService {
     // TODO Use injection instead?
     private static final Logger log = Logger.getLogger(
             ExternalRoutingService.class.getName());
-    @Inject
-    private ApplicationInfo appInfo;
-
-    @PostConstruct
-    public void init() {
-        if (appInfo.getServletContext() != null) {
-            String urlPropertyName = "reactivejavaee.graphTraversalUrl." + appInfo.getServletContext().getContextPath().substring(1);
-            graphTraversalResource = jaxrsClient.target(System.getProperty(urlPropertyName, graphTraversalUrl));
-        } else {
-            graphTraversalResource = jaxrsClient.target(graphTraversalUrl);
-        }
-        graphTraversalResource.register(new MoxyJsonFeature()).register(
-                new JsonMoxyConfigurationContextResolver());
-    }
 
     @Override
-    public CompletionStage<List<Itinerary>> fetchRoutesForSpecification(
+    public CompletionStream<Itinerary> fetchRoutesForSpecification(
             RouteSpecification routeSpecification) {
         // The RouteSpecification is picked apart and adapted to the external API.
         String origin = routeSpecification.getOrigin().getUnLocode().getIdString();
         String destination = routeSpecification.getDestination().getUnLocode()
                 .getIdString();
 
-        return JaxrsResponseCallback.get(graphTraversalResource
-                .queryParam("origin", origin)
-                .queryParam("destination", destination)
-                .request(MediaType.APPLICATION_JSON_TYPE)
-                .async(), new GenericType<List<TransitPath>>() {})
-                .thenApply(transitPaths -> {
+        DirectCompletionStream<Itinerary> result = new DirectCompletionStream<>();
+        
+        graphTraversalResource.get(origin, destination)
+            .acceptEach(stage -> {
 
-                    // The returned result is then translated back into our domain model.
-                    List<Itinerary> itineraries = new ArrayList<>();
+                stage.thenAccept(transitPath -> {
 
-                    for (TransitPath transitPath : transitPaths) {
-                        Itinerary itinerary = toItinerary(transitPath);
-                        // Use the specification to safe-guard against invalid itineraries
-                        if (routeSpecification.isSatisfiedBy(itinerary)) {
-                            itineraries.add(itinerary);
-                        } else {
-                            log.log(Level.FINE,
-                                    "Received itinerary that did not satisfy the route specification");
-                        }
-                    }
-
-                    return itineraries;
+                            Itinerary itinerary = toItinerary(transitPath);
+                            // Use the specification to safe-guard against invalid itineraries
+                            if (routeSpecification.isSatisfiedBy(itinerary)) {
+                                result.itemProcessed(itinerary);
+                            } else {
+                                log.log(Level.FINE,
+                                        "Received itinerary that did not satisfy the route specification");
+                            }
                 });
+            })
+            .whenFinished()
+            .thenRun(result::processingFinished);
+        return result;
     }
 
     private Itinerary toItinerary(TransitPath transitPath) {
