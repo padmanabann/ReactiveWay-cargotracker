@@ -77,11 +77,8 @@ public class ExternalRoutingService implements RoutingService {
                 .queryParam("origin", origin)
                 .queryParam("destination", destination)
                 .request(MediaType.APPLICATION_JSON_TYPE)
-                .async())
-                .thenApply(r -> {
-
-                    List<TransitPath> transitPaths = r.readEntity(new GenericType<List<TransitPath>>() {
-                    });
+                .async(), new GenericType<List<TransitPath>>() {})
+                .thenApply(transitPaths -> {
 
                     // The returned result is then translated back into our domain model.
                     List<Itinerary> itineraries = new ArrayList<>();

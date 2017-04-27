@@ -12,6 +12,7 @@ import java.util.logging.Logger;
 import javax.enterprise.concurrent.ContextService;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
+import javax.ws.rs.core.GenericType;
 import net.java.pathfinder.api.TransitPath;
 
 /**
@@ -35,11 +36,13 @@ import net.java.pathfinder.api.TransitPath;
  * </pre>
  *
  */
-public class JaxrsResponseCallback extends CompletableFuture<Response> implements InvocationCallback<Response> {
+public class JaxrsResponseCallback<T> extends CompletableFuture<T> implements InvocationCallback<Response> {
 
     private Consumer<Response> onCompleted;
 
     private Consumer<Throwable> onFailed;
+    
+    private GenericType<T> type;
 
     @Override
     public void completed(Response response) {
@@ -51,11 +54,16 @@ public class JaxrsResponseCallback extends CompletableFuture<Response> implement
         onFailed.accept(throwable);
     }
 
-    private JaxrsResponseCallback(ContextService contextService) {
+    private JaxrsResponseCallback(ContextService contextService, GenericType<T> type) {
+        this.type = type;
         onCompleted = contextService.createContextualProxy(new Consumer<Response>() {
             @Override
-            public void accept(Response r) {
-                JaxrsResponseCallback.super.complete(r);
+            public void accept(Response response) {
+                if (type == null) {
+                    JaxrsResponseCallback.super.complete((T)response);
+                } else {
+                    JaxrsResponseCallback.super.complete(response.readEntity(type));
+                }
             }
 
         }, Consumer.class);
@@ -70,7 +78,13 @@ public class JaxrsResponseCallback extends CompletableFuture<Response> implement
     }
 
     public static CompletionStage<Response> get(AsyncInvoker invoker) {
-        final JaxrsResponseCallback completion = new JaxrsResponseCallback(lookupDefaultContextService());
+        final JaxrsResponseCallback<Response> completion = new JaxrsResponseCallback<>(lookupDefaultContextService(), null);
+        invoker.get(completion);
+        return completion;
+    }
+
+    public static <XT> CompletionStage<XT> get(AsyncInvoker invoker, GenericType<XT> type) {
+        final JaxrsResponseCallback<XT> completion = new JaxrsResponseCallback<>(lookupDefaultContextService(), type);
         invoker.get(completion);
         return completion;
     }
