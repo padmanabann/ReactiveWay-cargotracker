@@ -38,6 +38,10 @@ public class DirectCompletionStream<ITEM_TYPE> implements CompletionStream<ITEM_
         finishedCF.complete(null);
     }
 
+    public void processingFinishedWithException(Throwable t) {
+        finishedCF.completeExceptionally(t);
+    }
+
     @Override
     public <NEW_TYPE> CompletionStream<NEW_TYPE> applyToEach(Function<CompletionStage<ITEM_TYPE>, CompletionStage<NEW_TYPE>> function) {
         DirectCompletionStream<NEW_TYPE> result = new DirectCompletionStream<>();

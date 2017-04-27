@@ -3,13 +3,17 @@ package net.java.pathfinder.api;
 import fish.payara.micro.cdi.Inbound;
 import fish.payara.micro.cdi.Outbound;
 import java.util.*;
+import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.ejb.Stateless;
 import javax.enterprise.event.Event;
 import javax.enterprise.event.Observes;
 import javax.inject.Inject;
-import javax.ws.rs.Path;
+import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Size;
+import javax.ws.rs.*;
+import net.java.cargotracker.application.util.reactive.CompletionStream;
 import net.java.pathfinder.api.reactive.GraphTraversalRequest;
 import net.java.pathfinder.api.reactive.GraphTraversalResponse;
 import net.java.pathfinder.internal.GraphDao;
@@ -30,10 +34,42 @@ public class GraphTraversalService {
     @Outbound(loopBack = true)
     private Event<GraphTraversalResponse> responseEvent;
 
+    @GET
+    @Path("/shortest-path")
+    @Produces({"application/json", "application/xml; qs=.75"})
+    // TODO Add internationalized messages for constraints.
+    public List<TransitPath> findShortestPath(
+            @NotNull @Size(min = 5, max = 5) @QueryParam("origin") String originUnLocode,
+            @NotNull @Size(min = 5, max = 5) @QueryParam("destination") String destinationUnLocode,
+            @QueryParam("deadline") String deadline) throws InterruptedException {
+
+        List<TransitPath> candidates = new ArrayList<>();
+        Throwable[] exceptionHolder = new Throwable[1];
+
+        findShortestPath(originUnLocode, destinationUnLocode,
+                candidates::add,
+                () -> {},
+                e -> exceptionHolder[0] = e);
+
+        if (exceptionHolder.length < 1) {
+            return candidates;
+        } else {
+            throw new RuntimeException(exceptionHolder[0]);
+        }
+    }
+    
     public void findShortestPath(@Observes @Inbound GraphTraversalRequest request) {
-        Date date = nextDate(new Date());
         String originUnLocode = request.getOrigin();
         String destinationUnLocode = request.getDestination();
+        findShortestPath(originUnLocode, destinationUnLocode,
+                item -> responseEvent.fire(GraphTraversalResponse.newWithValue(item, request)),
+                () -> responseEvent.fire(GraphTraversalResponse.newCompleted(request)),
+                e -> responseEvent.fire(GraphTraversalResponse.newCompletedWithException(e, request)));
+    }
+    
+    public void findShortestPath(String originUnLocode,
+            String destinationUnLocode, Consumer<TransitPath> onNewItem, Runnable onCompleted, Consumer<Throwable> onException) {
+        Date date = nextDate(new Date());
 
         try {
             List<String> allVertices = dao.listLocations();
@@ -41,8 +77,6 @@ public class GraphTraversalService {
             allVertices.remove(destinationUnLocode);
 
             int candidateCount = getRandomNumberOfCandidates();
-            List<TransitPath> candidates = new ArrayList<>(
-                    candidateCount);
 
             for (int i = 0; i < candidateCount; i++) {
                 allVertices = getRandomChunkOfLocations(allVertices);
@@ -77,15 +111,15 @@ public class GraphTraversalService {
 
                 Thread.sleep(Integer.valueOf(System.getProperty("reactivejavaee.itemslowdown", "3000")));
                 
-                responseEvent.fire(GraphTraversalResponse.newWithValue(new TransitPath(transitEdges), request));
+                onNewItem.accept(new TransitPath(transitEdges));
             }
 
-            responseEvent.fire(GraphTraversalResponse.newCompleted(request));
+            onCompleted.run();
 
             logger.info("Path Finder Service called for " + originUnLocode + " to " + destinationUnLocode);
         } catch (Exception e) {
             logger.log(Level.SEVERE, e.getMessage(), e);
-            responseEvent.fire(GraphTraversalResponse.newCompletedWithException(e, request));
+            onException.accept(e);
         }
     }
 
