@@ -7,9 +7,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.PostConstruct;
+import javax.annotation.Resource;
+import javax.enterprise.concurrent.ManagedExecutorService;
 import javax.inject.Inject;
 import javax.inject.Named;
-import net.java.cargotracker.infrastructure.routing.ExternalRoutingService;
 import net.java.cargotracker.interfaces.booking.facade.BookingServiceFacade;
 import net.java.cargotracker.interfaces.booking.facade.dto.CargoRoute;
 import net.java.cargotracker.interfaces.booking.facade.dto.RouteCandidate;
@@ -79,31 +80,47 @@ public class ItinerarySelection implements Serializable {
         websocketTriggered.complete(null);
     }
 
+    @Resource(name = "concurrent/myExecutor")
+    ManagedExecutorService executorForBlocking;
+
+    @Resource
+    ManagedExecutorService executorForNonBlocking;
+
     public void load() {
         if (hasLoadingStarted()) {
             return;
         }
         loadingStarted = true;
-        cargo = bookingServiceFacade.loadCargoForRouting(trackingId);
-        bookingServiceFacade
-                .requestPossibleRoutesForCargo(trackingId)
-                .acceptEach(stage -> {
-                    stage.thenAccept(routeCandidate -> {
-                        log.info(() -> "Accepted " + routeCandidate);
-                        routeCandidates.add(routeCandidate);
-                        websocketTriggered.thenRun(() -> {
-                            push.send("refresh");
-                        });
-                    }).exceptionally(e -> {
-                        log.log(Level.WARNING, e, () -> "Error: " + e.getMessage());
-                        websocketTriggered.thenRun(() -> {
-                            push.send("error: " + e.getMessage());
-                        });
-                        return null;
-                    });
+
+        CompletableFuture.runAsync(() -> {
+            cargo = bookingServiceFacade.loadCargoForRouting(trackingId);
+        }, executorForBlocking)
+                .thenComposeAsync(_v -> {
+
+                    return bookingServiceFacade
+                            .requestPossibleRoutesForCargo(trackingId)
+                            .acceptEach(stage -> {
+                                stage.thenAccept(routeCandidate -> {
+                                    log.info(() -> "Accepted " + routeCandidate);
+                                    routeCandidates.add(routeCandidate);
+                                    websocketTriggered.thenRun(() -> {
+                                        push.send("refresh");
+                                    });
+                                }).exceptionally(e -> {
+                                    log.log(Level.WARNING, e, () -> "Error: " + e.getMessage());
+                                    websocketTriggered.thenRun(() -> {
+                                        push.send("error: " + e.getMessage());
+                                    });
+                                    return null;
+                                });
+                            })
+                            .whenFinished();
+                }, executorForNonBlocking)
+                .exceptionally(e -> {
+                    log.log(Level.WARNING, e, () -> "Error: " + e.getMessage());
+                    return null;
                 })
-                .whenFinished()
-                .whenComplete((v, e) -> {
+                .whenComplete((_v, e) -> {
                     loadingFinished = true;
                     websocketTriggered.thenRun(() -> {
                         push.send("finished");

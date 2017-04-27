@@ -83,4 +83,12 @@
         <resource-adapter>jmsra</resource-adapter>
         <destination-name>HandlingEventRegistrationAttemptQueue</destination-name>
     </jms-destination>
+    <resource-env-ref>
+        <resource-env-ref-name>
+            concurrent/myExecutor
+        </resource-env-ref-name>
+        <resource-env-ref-type>
+            javax.enterprise.concurrent.ManagedExecutorService
+        </resource-env-ref-type>
+    </resource-env-ref>
 </web-app>
