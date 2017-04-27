@@ -31,12 +31,12 @@ public class GraphTraversalService {
     private Event<GraphTraversalResponse> responseEvent;
 
     public void findShortestPath(@Observes @Inbound GraphTraversalRequest request) {
+        Date date = nextDate(new Date());
         String originUnLocode = request.getOrigin();
         String destinationUnLocode = request.getDestination();
 
         try {
             List<String> allVertices = dao.listLocations();
-            Date date = nextDate(new Date());
             allVertices.remove(originUnLocode);
             allVertices.remove(destinationUnLocode);
 
