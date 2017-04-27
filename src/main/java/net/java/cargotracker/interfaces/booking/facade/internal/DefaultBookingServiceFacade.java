@@ -7,7 +7,6 @@ import java.util.List;
 import java.util.concurrent.CompletionStage;
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
-import javax.transaction.Transactional;
 import net.java.cargotracker.application.BookingService;
 import net.java.cargotracker.application.util.reactive.CompletionStream;
 import net.java.cargotracker.domain.model.cargo.Cargo;
@@ -26,7 +25,6 @@ import net.java.cargotracker.interfaces.booking.facade.internal.assembler.Itiner
 import net.java.cargotracker.interfaces.booking.facade.internal.assembler.LocationDtoAssembler;
 
 @ApplicationScoped
-@Transactional
 public class DefaultBookingServiceFacade implements BookingServiceFacade,
         Serializable {
 

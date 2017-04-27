@@ -78,25 +78,15 @@ public class JaxrsResponseCallback<T> extends CompletableFuture<T> implements In
     }
 
     public static CompletionStage<Response> get(AsyncInvoker invoker) {
-        final JaxrsResponseCallback<Response> completion = new JaxrsResponseCallback<>(lookupDefaultContextService(), null);
+        final JaxrsResponseCallback<Response> completion = new JaxrsResponseCallback<>(ResourceUtil.lookupDefaultContextService(), null);
         invoker.get(completion);
         return completion;
     }
 
     public static <XT> CompletionStage<XT> get(AsyncInvoker invoker, GenericType<XT> type) {
-        final JaxrsResponseCallback<XT> completion = new JaxrsResponseCallback<>(lookupDefaultContextService(), type);
+        final JaxrsResponseCallback<XT> completion = new JaxrsResponseCallback<>(ResourceUtil.lookupDefaultContextService(), type);
         invoker.get(completion);
         return completion;
-    }
-
-    private static ContextService lookupDefaultContextService() {
-        ContextService ctxService = null;
-        try {
-            ctxService = (ContextService) (new InitialContext().lookup("java:comp/DefaultContextService"));
-        } catch (NamingException ex) {
-            Logger.getLogger(JaxrsResponseCallback.class.getName()).log(Level.FINE, null, ex);
-        }
-        return ctxService;
     }
 
 }
