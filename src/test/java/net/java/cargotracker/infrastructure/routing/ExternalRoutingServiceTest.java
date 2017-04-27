@@ -2,6 +2,7 @@ package net.java.cargotracker.infrastructure.routing;
 
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 import net.java.cargotracker.domain.model.cargo.Cargo;
 import net.java.cargotracker.domain.model.cargo.Itinerary;
 import net.java.cargotracker.domain.model.cargo.Leg;
@@ -35,7 +36,7 @@ public class ExternalRoutingServiceTest {
 //        externalRoutingService.setGraphTraversalService(graphTraversalService);
 //    }
     // TODO this test belongs in com.pathfinder
-    public void testCalculatePossibleRoutes() {
+    public void testCalculatePossibleRoutes() throws InterruptedException, ExecutionException {
         TrackingId trackingId = new TrackingId("ABC");
         RouteSpecification routeSpecification = new RouteSpecification(SampleLocations.HONGKONG, SampleLocations.HELSINKI, new Date());
         Cargo cargo = new Cargo(trackingId, routeSpecification);
@@ -44,7 +45,7 @@ public class ExternalRoutingServiceTest {
 //
 //        replay(voyageRepository);
 
-        List<Itinerary> candidates = externalRoutingService.fetchRoutesForSpecification(routeSpecification);
+        List<Itinerary> candidates = externalRoutingService.fetchRoutesForSpecification(routeSpecification).toCompletableFuture().get();
         org.junit.Assert.assertNotNull(candidates);
 
         for (Itinerary itinerary : candidates) {

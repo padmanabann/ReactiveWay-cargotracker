@@ -3,6 +3,7 @@ package net.java.cargotracker.application.internal;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.ejb.Stateless;
@@ -58,7 +59,12 @@ public class DefaultBookingService implements BookingService {
             return Collections.emptyList();
         }
 
-        return routingService.fetchRoutesForSpecification(cargo.getRouteSpecification());
+        try {
+            return routingService.fetchRoutesForSpecification(cargo.getRouteSpecification())
+                    .toCompletableFuture().get(300, TimeUnit.SECONDS);
+        } catch (InterruptedException | ExecutionException | TimeoutException ex) {
+            throw new RuntimeException(ex);
+        }
     }
 
     @Override

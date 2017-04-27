@@ -3,6 +3,8 @@ package net.java.cargotracker.scenario;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 
 import net.java.cargotracker.application.ApplicationEvents;
 import net.java.cargotracker.application.BookingService;
@@ -324,11 +326,11 @@ public class CargoLifecycleScenarioTest {
 
     protected void setUp() throws Exception {
         routingService = new RoutingService() {
-            public List<Itinerary> fetchRoutesForSpecification(
+            public CompletionStage<List<Itinerary>> fetchRoutesForSpecification(
                     RouteSpecification routeSpecification) {
                 if (routeSpecification.getOrigin().equals(SampleLocations.HONGKONG)) {
                     // Hongkong - NYC - Chicago - SampleLocations.STOCKHOLM, initial routing
-                    return Arrays.asList(new Itinerary(Arrays.asList(new Leg(
+                    return CompletableFuture.completedFuture(Arrays.asList(new Itinerary(Arrays.asList(new Leg(
                             SampleVoyages.v100, SampleLocations.HONGKONG,
                             SampleLocations.NEWYORK,
                             DateUtil.toDate("2009-03-03"),
@@ -342,10 +344,10 @@ public class CargoLifecycleScenarioTest {
                                     SampleLocations.CHICAGO,
                                     SampleLocations.STOCKHOLM,
                                     DateUtil.toDate("2009-03-07"),
-                                    DateUtil.toDate("2009-03-11")))));
+                                    DateUtil.toDate("2009-03-11"))))));
                 } else {
                     // Tokyo - Hamburg - SampleLocations.STOCKHOLM, rerouting misdirected cargo from Tokyo 
-                    return Arrays.asList(new Itinerary(Arrays.asList(new Leg(
+                    return CompletableFuture.completedFuture(Arrays.asList(new Itinerary(Arrays.asList(new Leg(
                             SampleVoyages.v300, SampleLocations.TOKYO,
                             SampleLocations.HAMBURG,
                             DateUtil.toDate("2009-03-08"),
@@ -353,7 +355,7 @@ public class CargoLifecycleScenarioTest {
                                     SampleVoyages.v400, SampleLocations.HAMBURG,
                                     SampleLocations.STOCKHOLM,
                                     DateUtil.toDate("2009-03-14"),
-                                    DateUtil.toDate("2009-03-15")))));
+                                    DateUtil.toDate("2009-03-15"))))));
                 }
             }
         };
