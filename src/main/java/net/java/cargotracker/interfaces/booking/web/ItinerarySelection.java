@@ -1,13 +1,17 @@
 package net.java.cargotracker.interfaces.booking.web;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
-import javax.faces.view.ViewScoped;
+import java.util.concurrent.CompletableFuture;
+import java.util.logging.Logger;
+import javax.annotation.PostConstruct;
 import javax.inject.Inject;
 import javax.inject.Named;
 import net.java.cargotracker.interfaces.booking.facade.BookingServiceFacade;
 import net.java.cargotracker.interfaces.booking.facade.dto.CargoRoute;
 import net.java.cargotracker.interfaces.booking.facade.dto.RouteCandidate;
+import org.omnifaces.cdi.*;
 
 /**
  * Handles itinerary selection. Operates against a dedicated service facade, and
@@ -27,12 +31,26 @@ import net.java.cargotracker.interfaces.booking.facade.dto.RouteCandidate;
 public class ItinerarySelection implements Serializable {
 
     private static final long serialVersionUID = 1L;
+    private boolean loadingStarted;
+    private boolean loadingFinished;
     private String trackingId;
     private CargoRoute cargo;
     List<RouteCandidate> routeCandidates;
     @Inject
     private BookingServiceFacade bookingServiceFacade;
-
+    
+    @Inject
+    @Push(channel="routeCandidates")
+    private PushContext push;
+    
+    private CompletableFuture<Void> websocketTriggered;
+    
+    @PostConstruct
+    public void init() {
+        routeCandidates = new ArrayList<>();
+        websocketTriggered = new CompletableFuture<>();
+    }
+    
     public List<RouteCandidate> getRouteCandidates() {
         return routeCandidates;
     }
@@ -52,13 +70,44 @@ public class ItinerarySelection implements Serializable {
     public List<RouteCandidate> getRouteCanditates() {
         return routeCandidates;
     }
-
-    public void load() {
-        cargo = bookingServiceFacade.loadCargoForRouting(trackingId);
-        routeCandidates = bookingServiceFacade
-                .requestPossibleRoutesForCargo(trackingId);
+    
+    public void pageLoaded() {
+        websocketTriggered.complete(null);
     }
 
+    public void load() {
+        if (hasLoadingStarted()) {
+            return;
+        }
+        loadingStarted = true;
+        cargo = bookingServiceFacade.loadCargoForRouting(trackingId);
+        bookingServiceFacade
+            .requestPossibleRoutesForCargo(trackingId)
+                .thenAccept(candidates -> {
+                        Logger.getGlobal().info(() -> "Accepted candidates: " + candidates);
+                        routeCandidates.addAll(candidates);
+                    }).exceptionally(e -> {
+                        websocketTriggered.thenRun(() -> {
+                            push.send("error: " + e.getMessage());
+                        });
+                        return null;
+                    })
+                .whenComplete((v, e) -> {
+                    loadingFinished = true;
+                        websocketTriggered.thenRun(() -> {
+                            push.send("finished");
+                        });
+                });
+    }
+
+    private boolean hasLoadingStarted() {
+        return loadingStarted;
+    }
+
+    public boolean isLoadingFinished() {
+        return loadingFinished;
+    }
+    
     public String assignItinerary(int routeIndex) {
         RouteCandidate route = routeCandidates.get(routeIndex);
         bookingServiceFacade.assignCargoToRoute(trackingId, route);

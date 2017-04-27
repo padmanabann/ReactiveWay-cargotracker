@@ -43,6 +43,9 @@ public class CargoDetails {
     }
 
     public void load() {
-        cargo = bookingServiceFacade.loadCargoForRouting(trackingId);
+        if (trackingId != null) {
+            // a hack to avoid loading cargo details multiple times from route.xhtml facelet - should be done in a cleaner way
+            cargo = bookingServiceFacade.loadCargoForRouting(trackingId);
+        }
     }
 }

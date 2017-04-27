@@ -2,6 +2,7 @@ package net.java.cargotracker.application;
 
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.CompletionStage;
 import net.java.cargotracker.domain.model.cargo.Itinerary;
 import net.java.cargotracker.domain.model.cargo.TrackingId;
 import net.java.cargotracker.domain.model.location.UnLocode;
@@ -22,7 +23,7 @@ public interface BookingService {
      * @param trackingId cargo tracking id
      * @return A list of possible itineraries for this cargo
      */
-    List<Itinerary> requestPossibleRoutesForCargo(TrackingId trackingId);
+    CompletionStage<List<Itinerary>> requestPossibleRoutesForCargo(TrackingId trackingId);
 
     void assignCargoToRoute(Itinerary itinerary, TrackingId trackingId);
 

@@ -4,6 +4,8 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
 import net.java.cargotracker.application.BookingService;
@@ -91,18 +93,19 @@ public class DefaultBookingServiceFacade implements BookingServiceFacade,
     }
 
     @Override
-    public List<RouteCandidate> requestPossibleRoutesForCargo(String trackingId) {
-        List<Itinerary> itineraries = bookingService
-                .requestPossibleRoutesForCargo(new TrackingId(trackingId));
+    public CompletionStage<List<RouteCandidate>> requestPossibleRoutesForCargo(String trackingId) {
+        return bookingService
+                .requestPossibleRoutesForCargo(new TrackingId(trackingId))
+                .thenApply(itineraries -> {
+                    List<RouteCandidate> routeCandidates = new ArrayList<>(
+                            itineraries.size());
+                    ItineraryCandidateDtoAssembler dtoAssembler
+                            = new ItineraryCandidateDtoAssembler();
+                    for (Itinerary itinerary : itineraries) {
+                        routeCandidates.add(dtoAssembler.toDTO(itinerary));
+                    }
 
-        List<RouteCandidate> routeCandidates = new ArrayList<>(
-                itineraries.size());
-        ItineraryCandidateDtoAssembler dtoAssembler
-                = new ItineraryCandidateDtoAssembler();
-        for (Itinerary itinerary : itineraries) {
-            routeCandidates.add(dtoAssembler.toDTO(itinerary));
-        }
-
-        return routeCandidates;
+                    return routeCandidates;
+                });
     }
 }

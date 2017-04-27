@@ -49,6 +49,11 @@
             <version>7.0</version>
             <scope>provided</scope>
         </dependency>
+        <dependency>
+            <groupId>org.omnifaces</groupId>
+            <artifactId>omnifaces</artifactId>
+            <version>2.4</version>
+        </dependency>
 
         <!-- GlassFish specific dependencies, could go away in Java EE 8 -->
         <dependency>

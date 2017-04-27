@@ -18,6 +18,7 @@ import net.java.cargotracker.domain.model.location.Location;
 import net.java.cargotracker.domain.model.location.LocationRepository;
 import net.java.cargotracker.domain.model.location.UnLocode;
 import net.java.cargotracker.domain.service.RoutingService;
+import net.java.cargotracker.interfaces.booking.facade.dto.RouteCandidate;
 
 @Stateless
 public class DefaultBookingService implements BookingService {
@@ -52,19 +53,14 @@ public class DefaultBookingService implements BookingService {
     }
 
     @Override
-    public List<Itinerary> requestPossibleRoutesForCargo(TrackingId trackingId) {
+    public CompletionStage<List<Itinerary>> requestPossibleRoutesForCargo(TrackingId trackingId) {
         Cargo cargo = cargoRepository.find(trackingId);
 
         if (cargo == null) {
-            return Collections.emptyList();
+            return CompletableFuture.completedFuture(Collections.emptyList());
         }
 
-        try {
-            return routingService.fetchRoutesForSpecification(cargo.getRouteSpecification())
-                    .toCompletableFuture().get(300, TimeUnit.SECONDS);
-        } catch (InterruptedException | ExecutionException | TimeoutException ex) {
-            throw new RuntimeException(ex);
-        }
+        return routingService.fetchRoutesForSpecification(cargo.getRouteSpecification());
     }
 
     @Override
