@@ -13,6 +13,7 @@ import javax.ws.rs.client.ClientBuilder;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.GenericType;
 import javax.ws.rs.core.MediaType;
+import net.java.cargotracker.application.internal.ApplicationInfo;
 import net.java.cargotracker.application.util.JsonMoxyConfigurationContextResolver;
 import net.java.cargotracker.domain.model.cargo.Itinerary;
 import net.java.cargotracker.domain.model.cargo.Leg;
@@ -47,10 +48,17 @@ public class ExternalRoutingService implements RoutingService {
     // TODO Use injection instead?
     private static final Logger log = Logger.getLogger(
             ExternalRoutingService.class.getName());
+    @Inject
+    private ApplicationInfo appInfo;
 
     @PostConstruct
     public void init() {
-        graphTraversalResource = jaxrsClient.target(graphTraversalUrl);
+        if (appInfo.getServletContext() != null) {
+            String urlPropertyName = "reactivejavaee.graphTraversalUrl." + appInfo.getServletContext().getContextPath().substring(1);
+            graphTraversalResource = jaxrsClient.target(System.getProperty(urlPropertyName, graphTraversalUrl));
+        } else {
+            graphTraversalResource = jaxrsClient.target(graphTraversalUrl);
+        }
         graphTraversalResource.register(new MoxyJsonFeature()).register(
                 new JsonMoxyConfigurationContextResolver());
     }
