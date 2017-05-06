@@ -17,7 +17,7 @@ import net.java.pathfinder.api.reactive.GraphTraversalResponse;
 class GraphTraversalResource {
 
     @Inject
-    @Outbound(loopBack = true)
+    @Outbound
     private Event<GraphTraversalRequest> requestEvent;
     
     private ConcurrentHashMap<Long,DirectCompletionStream<TransitPath>> completionMap = new ConcurrentHashMap<>();
