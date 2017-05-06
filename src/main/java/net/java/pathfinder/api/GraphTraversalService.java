@@ -15,7 +15,7 @@ import javax.validation.constraints.Size;
 import javax.ws.rs.*;
 import javax.ws.rs.container.AsyncResponse;
 import javax.ws.rs.container.Suspended;
-import net.java.cargotracker.application.util.reactive.CompletionStream;
+import javax.ws.rs.core.GenericEntity;
 import net.java.pathfinder.api.reactive.GraphTraversalRequest;
 import net.java.pathfinder.api.reactive.GraphTraversalResponse;
 import net.java.pathfinder.internal.GraphDao;
@@ -51,7 +51,7 @@ public class GraphTraversalService {
 
         findShortestPath(originUnLocode, destinationUnLocode,
                 candidates::add,
-                () -> response.resume(candidates),
+                () -> response.resume(new GenericEntity<List<TransitPath>>(candidates){}),
                 e -> response.resume(e));
     }
     
