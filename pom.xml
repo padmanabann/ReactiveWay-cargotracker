@@ -55,12 +55,21 @@
             <version>2.4</version>
         </dependency>
         
+        <!-- JCache API -->
+        <dependency>
+            <groupId>javax.cache</groupId>
+            <artifactId>cache-api</artifactId>
+            <version>1.0.0</version>
+            <scope>provided</scope>
+        </dependency>
+        
         <!-- Payara specific dependencies -->
 
         <dependency>
             <groupId>fish.payara.api</groupId>
             <artifactId>payara-api</artifactId>
             <version>4.1.1.171.1</version>
+            <scope>provided</scope>
         </dependency>
 
         <!-- GlassFish specific dependencies, could go away in Java EE 8 -->
