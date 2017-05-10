@@ -148,6 +148,7 @@
                 <configuration>
                     <failOnMissingWebXml>false</failOnMissingWebXml>
                     <filteringDeploymentDescriptors>true</filteringDeploymentDescriptors>
+                    <outputDirectory>${project.build.directory}/autodeploy</outputDirectory>
                 </configuration>
             </plugin>
             <plugin>

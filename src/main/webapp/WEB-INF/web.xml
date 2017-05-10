@@ -51,7 +51,7 @@
     <data-source>
         <name>java:app/jdbc/CargoTrackerDatabase</name>
         <class-name>org.apache.derby.jdbc.EmbeddedDriver</class-name>
-        <url>jdbc:derby://localhost:1527/cargo-tracker-database;create=true</url>
+        <url>jdbc:derby:/tmp/cargo-tracker-database;create=true</url>
     </data-source>
     <jms-destination>
         <name>java:app/jms/CargoHandledQueue</name>
