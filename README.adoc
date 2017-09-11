@@ -4,7 +4,7 @@ This project provides an example how to enhance an existing Java EE application
 written in a traditional approach in a reactive way to improve its responsiveness.
 
 This project is based on the original https://cargotracker.java.net/[cargo tracker]
-application (https://github.com/javaee/cargotracker[cargo tracker on github]). The description of the original application can be found in this [readme.txt](readme.txt).
+application (https://github.com/javaee/cargotracker[cargo tracker on github]). The description of the original application can be found in this link:readme.txt[readme.txt].
 
 In this project, we start with the original monolithic application, we focus one particular usecase 
 of searching for routes for delivering cargo and we improve its responsiveness using asynchronous approach in multiple steps.
